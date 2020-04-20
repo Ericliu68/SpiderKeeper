@@ -13,7 +13,10 @@ def main():
         SQLALCHEMY_DATABASE_URI=opts.database_url,
         BASIC_AUTH_USERNAME=opts.username,
         BASIC_AUTH_PASSWORD=opts.password,
-        NO_AUTH=opts.no_auth
+        NO_AUTH=opts.no_auth,
+        CLOSE_TIME=int(float(opts.close_time)),
+        DEL_DATABASE=int(float(opts.del_database)),
+        JOBS_TIMEOVER=int(float(opts.jobs_timeover)),
     ))
     if opts.verbose:
         app.logger.setLevel(logging.DEBUG)
@@ -65,6 +68,18 @@ def parse_opts(config):
                       help="log level",
                       dest='verbose',
                       action='store_true')
+    parser.add_option("--close-time",
+                      help='CLOSESPIDER_TIMEOUT  seconds  default:900',
+                      dest='close_time',
+                      default=900)
+    parser.add_option("--del-database",
+                      help='delete database timing controller days default:10',
+                      dest='del_database',
+                      default=10)
+    parser.add_option("--jobs-timeover",
+                      help='delete scheduling time out jobs  minutes default:45',
+                      dest='jobs_timeover',
+                      default=45)
     return parser.parse_args()
 
 

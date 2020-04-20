@@ -1,8 +1,13 @@
 import threading
 import time
+import datetime
+
+
+from sqlalchemy import and_
+
 
 from SpiderKeeper.app import scheduler, app, agent, db
-from SpiderKeeper.app.spider.model import Project, JobInstance, SpiderInstance
+from SpiderKeeper.app.spider.model import Project, JobInstance, SpiderInstance, JobExecution
 
 
 def sync_job_execution_status_job():
@@ -78,3 +83,45 @@ def reload_runnable_spider_job_execution():
                                  running_job_ids.difference(available_job_ids)):
         scheduler.remove_job(invalid_job_id)
         app.logger.info('[drop_spider_job][job_id:%s]' % invalid_job_id)
+
+
+# 定时删除数据库过期数据
+def delete_database():
+    try:
+        start_time = datetime.datetime.now() - datetime.timedelta(days=app.config["DEL_DATABASE"])
+        db.session.query(JobExecution).filter(JobExecution.create_time < start_time).delete()
+        db.session.commit()
+        app.logger.info("历史记录删除成功")
+    except Exception as e:
+        app.logger.info('历史删除数据库内容')
+        app.logger.error(e)
+        db.session.rollback()
+        db.session.remove()
+
+
+# 定时删除等待或者运行超过一小时的任务
+def delete_run_status():
+    try:
+
+        start_time = datetime.datetime.now() - datetime.timedelta(minutes=app.config["JOBS_TIMEOVER"])
+        # 等待任务超过一个小时的
+        db.session.query(JobExecution).filter(and_(JobExecution.create_time < start_time, JobExecution.running_status == 0)).delete()
+
+        db.session.commit()
+        # 运行任务超过一个小时的
+        # db.session.query(JobExecution).filter(and_(JobExecution.create_time < start_time, JobExecution.running_status == 1))\
+        #     .update({JobExecution.running_status: 2})
+        #
+        # db.session.commit()
+        running_jobs = db.session.query(JobExecution).filter(and_(JobExecution.create_time < start_time, JobExecution.running_status == 1)).all()
+        for running_job in running_jobs:
+            agent.cancel_spider(running_job)
+
+        app.logger.info("超时任务删除成功")
+    except Exception as e:
+        app.logger.info('超时任务数据库内容')
+        app.logger.error(e)
+        db.session.rollback()
+        db.session.remove()
+
+

@@ -1,10 +1,12 @@
 import datetime, time
-
 import requests
+import logging
+
 
 from SpiderKeeper.app.proxy.spiderctrl import SpiderServiceProxy
 from SpiderKeeper.app.spider.model import SpiderStatus, Project, SpiderInstance
 from SpiderKeeper.app.util.http import request
+from SpiderKeeper.app import app
 
 
 class ScrapydProxy(SpiderServiceProxy):
@@ -66,6 +68,7 @@ class ScrapydProxy(SpiderServiceProxy):
     def start_spider(self, project_name, spider_name, arguments):
         post_data = dict(project=project_name, spider=spider_name)
         post_data.update(arguments)
+        post_data.update({"setting": "CLOSESPIDER_TIMEOUT={}".format(app.config["CLOSE_TIME"])})
         data = request("post", self._scrapyd_url() + "/schedule.json", data=post_data, return_type="json")
         return data['jobid'] if data and data['status'] == 'ok' else None
 
